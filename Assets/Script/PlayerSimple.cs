@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using TMPro;
+using UnityEngine.UI; // ★HPバー(Slider)を使うために追加
 
 public class PlayerSimple : MonoBehaviour
 {
@@ -15,12 +16,18 @@ public class PlayerSimple : MonoBehaviour
     public AudioClip reloadSound;
     [Header("Hit Sound")]
     public AudioClip hitSound;
-    [Header("Mone")]
+    [Header("Move")]
     public float walkSpeed = 5.0f;
     public float dashSpeed = 20.0f;
     public TextMeshProUGUI ammoText;
-    private Vector2 moveInput;
 
+    [Header("HP")] // ★HP関連の変数を追加
+    public float maxHp = 100f;
+    public float currentHp;
+    public Slider hpSlider; // ★Unity上のHPバー（スライダー）を紐付ける
+    public AudioClip damageSound; // ★ダメージを受けた時の音
+
+    private Vector2 moveInput;
     private bool isDashing = false;
 
     [Header("Ammo")]
@@ -30,52 +37,86 @@ public class PlayerSimple : MonoBehaviour
     public float reloadTime = 1.5f;
 
     [Header("Shooting Settings")]
-    public float fireRate = 0.2f; // 連射速度 (0.2秒に1発)
-    private float nextFireTime = 0f; // 次に撃てる時刻
-    private bool isFiring = false; // 今マウスを押しているか
+    public float fireRate = 0.2f;
+    private float nextFireTime = 0f;
+    private bool isFiring = false;
+
+    [Header("Rolling")]
+    public float rollSpeed = 15f;
+    public float rollDuration = 0.5f;
+    private float rollTimer;
+    private bool isRolling = false;
+    private Vector3 rollDir;
 
     private bool isReloading = false;
 
     void Start()
     {
+        currentHp = maxHp; // ★HPを全快で開始
         UpdateAmmoUI();
+        UpdateHpUI(); // ★HPバーを更新
     }
 
-    // 敵にダメージを与える処理（中央管理）
-    public void DealDamage(GameObject target)
-{
-    Enemy enemy = target.GetComponent<Enemy>();
-
-    if (enemy != null)
+    // ★ダメージを受ける処理
+    public void TakeDamage(float damage)
     {
-        enemy.TakeDamage(10);
-        // 🔊 ヒット音
-    if (audioSource != null && hitSound != null)
-    {
-    audioSource.PlayOneShot(hitSound);
-    }
+        if (isRolling) return; // 回避中は無敵（ルートシューターの定番！）
 
-        // 🔥 ヒット時クロスヘア変更
-        if (crosshair != null)
+        currentHp -= damage;
+        UpdateHpUI();
+
+        if (audioSource != null && damageSound != null)
         {
-            crosshair.ShowHit();
+            audioSource.PlayOneShot(damageSound);
+        }
+
+        if (currentHp <= 0)
+        {
+            Die();
         }
     }
-}
+
+    void Die()
+    {
+        Debug.Log("ゲームオーバー");
+        // ここにリスタート処理やJavaへのデータ送信（敗北ログ）などを後で書きます
+    }
+
+    // 敵にダメージを与える処理
+    public void DealDamage(GameObject target)
+    {
+        Enemy enemy = target.GetComponent<Enemy>();
+        if (enemy != null)
+        {
+            enemy.TakeDamage(10);
+            if (audioSource != null && hitSound != null)
+            {
+                audioSource.PlayOneShot(hitSound);
+            }
+            if (crosshair != null)
+            {
+                crosshair.ShowHit();
+            }
+        }
+    }
 
     void Update()
     {
-        // 1. 移動
-        float currentSpeed = isDashing ? dashSpeed : walkSpeed;
+        if (isRolling)
+        {
+            transform.position += rollDir * rollSpeed * Time.deltaTime;
+            rollTimer -= Time.deltaTime;
+            if (rollTimer <= 0) isRolling = false;
+            return;
+        }
 
+        float currentSpeed = isDashing ? dashSpeed : walkSpeed;
         Vector3 dir = new Vector3(moveInput.x, 0f, moveInput.y).normalized;
         transform.position += dir * currentSpeed * Time.deltaTime;
 
-        // 2. マウス方向
         Vector3 mouseScreenPos = Input.mousePosition;
         mouseScreenPos.z = Camera.main.transform.position.y;
         Vector3 mouseWorldPos = Camera.main.ScreenToWorldPoint(mouseScreenPos);
-
         Vector3 targetDir = mouseWorldPos - transform.position;
         targetDir.y = 0;
 
@@ -85,18 +126,28 @@ public class PlayerSimple : MonoBehaviour
             transform.rotation = Quaternion.Euler(0, angle, 0);
         }
 
-        // 3. 連射の判定
         if (isFiring && !isReloading && currentAmmo > 0 && Time.time >= nextFireTime)
         {
             Shoot();
             nextFireTime = Time.time + fireRate;
         }
 
-        // Rキーでリロード
         if (Keyboard.current.rKey.wasPressedThisFrame)
         {
             TryReload();
         }
+
+        if (Keyboard.current.spaceKey.wasPressedThisFrame && moveInput != Vector2.zero)
+        {
+            StartRoll();
+        }
+    }
+
+    void StartRoll()
+    {
+        isRolling = true;
+        rollTimer = rollDuration;
+        rollDir = new Vector3(moveInput.x, 0f, moveInput.y).normalized;
     }
 
     void OnMove(InputValue value)
@@ -107,7 +158,6 @@ public class PlayerSimple : MonoBehaviour
     void OnDash(InputValue value)
     {
         isDashing = value.isPressed;
-        Debug.Log("Dash入力:" + isDashing);
     }
 
     void OnFire(InputValue value)
@@ -119,51 +169,38 @@ public class PlayerSimple : MonoBehaviour
     {
         currentAmmo--;
         UpdateAmmoUI();
-
         if (muzzle != null && bulletPrefab != null)
         {
             Instantiate(bulletPrefab, muzzle.position, muzzle.rotation);
         }
-
         if (audioSource != null && shootSound != null)
         {
             audioSource.PlayOneShot(shootSound);
         }
-
-        Debug.Log("残弾: " + currentAmmo);
     }
 
     void TryReload()
     {
-        if (isReloading) return;
+        if (isReloading || isRolling) return;
         if (currentAmmo >= maxAmmo) return;
         if (reserveAmmo <= 0) return;
-
         StartCoroutine(ReloadCoroutine());
     }
 
     IEnumerator ReloadCoroutine()
     {
         isReloading = true;
-        Debug.Log("リロード開始");
-
         if (audioSource != null && reloadSound != null)
         {
             audioSource.PlayOneShot(reloadSound);
         }
-
         yield return new WaitForSeconds(reloadTime);
-
         int need = maxAmmo - currentAmmo;
         int loadAmount = Mathf.Min(need, reserveAmmo);
-
         currentAmmo += loadAmount;
         reserveAmmo -= loadAmount;
-
         isReloading = false;
         UpdateAmmoUI();
-
-        Debug.Log("リロード完了");
     }
 
     void UpdateAmmoUI()
@@ -171,6 +208,16 @@ public class PlayerSimple : MonoBehaviour
         if (ammoText != null)
         {
             ammoText.text = currentAmmo + " / " + reserveAmmo;
+        }
+    }
+
+    // ★HPバーの更新
+    void UpdateHpUI()
+    {
+        if (hpSlider != null)
+        {
+            hpSlider.maxValue = maxHp;
+            hpSlider.value = currentHp;
         }
     }
 }
