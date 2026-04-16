@@ -1,0 +1,21 @@
+# Unity
+Library/
+Temp/
+Obj/
+Logs/
+UserSettings/
+
+# Build
+Build/
+Builds/
+*.zip
+
+# IDE
+.vs/
+.vscode/
+*.csproj
+*.sln
+
+# OS
+.DS_Store
+Thumbs.db
