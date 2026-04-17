@@ -1,0 +1,74 @@
+[33mcommit 91cf39e44e85fde3c5f3d5bcb82216fb8d7ae117[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m)[m
+Author: hashimotoren <hashimotoren051029@gmail.com>
+Date:   Fri Apr 17 11:26:01 2026 +0900
+
+    saisin
+
+[33mcommit 1f50d2c579f5a791e558701d7cc2c9a5b3ca3d4b[m
+Author: hashimotoren <hashimotoren051029@gmail.com>
+Date:   Thu Apr 16 13:25:09 2026 +0900
+
+    最新版
+
+[33mcommit a3848517df4ccba3c70d7798c6b9c5710fb4721e[m[33m ([m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m
+Author: shuta_ueda <syuta12024@gmail.com>
+Date:   Thu Apr 16 12:05:40 2026 +0900
+
+    変更
+
+[33mcommit 70eb3dde83be3b3f76d678a1d927f705ec0ec6ca[m
+Author: shuta_ueda <syuta12024@gmail.com>
+Date:   Thu Apr 16 11:53:55 2026 +0900
+
+    test
+
+[33mcommit 5650419aa562f2c2df97a4bf9d2574f0761a53e5[m
+Merge: 962cb9f f85b2d9
+Author: shuta_ueda <syuta12024@gmail.com>
+Date:   Thu Apr 16 11:17:45 2026 +0900
+
+    Merge branch 'main' of https://github.com/1sekt/Cal303_TeamProject
+
+[33mcommit 962cb9f7aac7fffe0836e8213449b241d6db31af[m
+Author: shuta_ueda <syuta12024@gmail.com>
+Date:   Thu Apr 16 11:12:09 2026 +0900
+
+    初回コミット
+
+[33mcommit f85b2d961008b9fa40e838e8cba9ecbd84d9acc3[m
+Author: shuta_ueda <syuta12024@gmail.com>
+Date:   Wed Apr 15 15:35:44 2026 +0900
+
+    Delete index.html
+
+[33mcommit 675c888d7be5587707d9395a0bf2c2c42f6aff37[m
+Author: shuta_ueda <syuta12024@gmail.com>
+Date:   Wed Apr 15 15:35:32 2026 +0900
+
+    Delete TemplateData directory
+
+[33mcommit adb643c534dd0b951abd4f409bfbcfa4340abebf[m
+Author: shuta_ueda <syuta12024@gmail.com>
+Date:   Wed Apr 15 15:35:19 2026 +0900
+
+    Delete Build directory
+
+[33mcommit dbdad508fff29830ee60538d4469097852553fc3[m
+Author: shuta_ueda <syuta12024@gmail.com>
+Date:   Tue Apr 14 10:32:19 2026 +0900
+
+    Fix Unity WebGL build test files
+
+[33mcommit 3042a39eaa9f68abfd3ded8d25d30fd3ff3fd2ce[m
+Author: shuta_ueda <syuta12024@gmail.com>
+Date:   Tue Apr 14 10:28:08 2026 +0900
+
+    Delete Build directory
+
+[33mcommit 8f91080fb90eb00b6ce3119604f71a8cad565c8b[m
+Author: shuta_ueda <syuta12024@gmail.com>
+Date:   Tue Apr 14 10:18:18 2026 +0900
+
+    Add Unity WebGL build test files
+    
+    WebGLテスト
