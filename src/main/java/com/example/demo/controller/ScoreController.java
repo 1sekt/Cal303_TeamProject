@@ -1,5 +1,7 @@
 package com.example.demo.controller;
 
+import java.nio.charset.StandardCharsets;
+import java.security.Key;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -7,6 +9,7 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
@@ -20,6 +23,10 @@ import org.springframework.web.bind.annotation.RestController;
 import com.example.demo.entity.Score;
 import com.example.demo.repository.ScoreRepository;
 
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.security.Keys;
+
 @RestController
 @RequestMapping("/api/score")
 @CrossOrigin(origins = "*", allowedHeaders = "*") // WebGLからのアクセス許可
@@ -28,15 +35,18 @@ public class ScoreController {
     @Autowired
     private ScoreRepository scoreRepository;
 
+    // 🔐 application.properties から Supabase の JWT Secret を読み込みます
+    @Value("${supabase.jwt.secret}")
+    private String jwtSecret;
+
     // 1. スコア保存API (POST /api/score/submit)
     @PostMapping("/submit")
     public ResponseEntity<?> submitScore(
             @RequestHeader("Authorization") String token, 
             @RequestBody Map<String, Integer> body) {
         try {
-            // Unityから「Bearer <UUID>」の形で送られてくるため、文字を整形してUUIDに変換
-            String uuidStr = token.replace("Bearer ", "").trim();
-            UUID userId = UUID.fromString(uuidStr);
+            // JWTから安全にUUID（ユーザーID）を取り出す
+            UUID userId = extractUserIdFromToken(token);
 
             Score scoreEntity = new Score();
             scoreEntity.setUserId(userId);
@@ -47,7 +57,7 @@ public class ScoreController {
             return ResponseEntity.ok("{\"message\":\"Score saved successfully\"}");
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body("{\"error\":\"Invalid user ID format: " + e.getMessage() + "\"}");
+                    .body("{\"error\":\"Invalid token: " + e.getMessage() + "\"}");
         }
     }
 
@@ -55,11 +65,11 @@ public class ScoreController {
     @GetMapping("/history")
     public ResponseEntity<?> getScoreHistory(@RequestHeader("Authorization") String token) {
         try {
-            String uuidStr = token.replace("Bearer ", "").trim();
-            UUID userId = UUID.fromString(uuidStr);
+            // JWTから安全にUUID（ユーザーID）を取り出す
+            UUID userId = extractUserIdFromToken(token);
 
             Integer highScore = scoreRepository.findHighScoreByUserId(userId);
-            if (highScore == null) highScore = 0; // まだデータがない場合
+            if (highScore == null) highScore = 0;
 
             // 最新10件の履歴を取得
             List<Score> historyEntities = scoreRepository.findTop10ByUserIdOrderByCreatedAtDesc(userId);
@@ -74,7 +84,35 @@ public class ScoreController {
             return ResponseEntity.ok(response);
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body("{\"error\":\"Invalid user ID format: " + e.getMessage() + "\"}");
+                    .body("{\"error\":\"Invalid token: " + e.getMessage() + "\"}");
         }
+    }
+
+    // 💡 届いた暗号化JWTが本物か検証し、中のUUIDを安全にトリミングして取り出すロジック
+    private UUID extractUserIdFromToken(String authorizationHeader) {
+        if (authorizationHeader == null || authorizationHeader.isEmpty()) {
+            throw new IllegalArgumentException("Authorizationヘッダーが空です");
+        }
+
+        // 送信形式のズレに対応するため、大文字小文字を無視して「bearer」を削り、前後の空白を除去
+        String token = authorizationHeader.toLowerCase().replace("bearer", "").trim();
+        
+        // 元の文字列から、正確な大文字小文字のトークン部分（eY...）だけを切り出す
+        if (authorizationHeader.length() > 7 && authorizationHeader.substring(0, 7).equalsIgnoreCase("bearer ")) {
+            token = authorizationHeader.substring(7).trim();
+        }
+
+        Key key = Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
+        
+        // 署名が偽装されていないか検証しながらパース（暗号解除）
+        Claims claims = Jwts.parserBuilder()
+                .setSigningKey(key)
+                .build()
+                .parseClaimsJws(token)
+                .getBody();
+        
+        // JWTの「sub（Subject）」に刻印されている本物のユーザーUUID文字列を取得
+        String userIdStr = claims.getSubject();
+        return UUID.fromString(userIdStr);
     }
 }
