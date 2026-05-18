@@ -38,8 +38,9 @@ public class ScoreService {
 
         // 2. 既存の scores テーブルに対して累積加算（UPSERT処理）
         String upsertSql = 
-            "INSERT INTO scores (user_id, score) VALUES (CAST(? AS UUID), ?) " +
-            "ON CONFLICT (user_id) DO UPDATE SET score = scores.score + EXCLUDED.score";
+	    "INSERT INTO scores (user_id, score) VALUES (CAST(? AS UUID), ?) " +
+	    "ON CONFLICT (user_id) DO UPDATE SET score = GREATEST(scores.score, EXCLUDED.score)";
+
         jdbcTemplate.update(upsertSql, userId, currentEarned);
 
         // 3. 新しく作った score_histories テーブルへ今回のクリア履歴を挿入
