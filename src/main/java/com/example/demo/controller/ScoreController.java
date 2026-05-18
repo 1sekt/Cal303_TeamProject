@@ -117,7 +117,7 @@ public class ScoreController {
 
     
     // 3. 🎯 新設：アイテムIDリストを受け取り換金・保存して最新データを返すAPI
-    @PostMapping("/escape")
+    @PostMapping("/api/score/escape")
     @Transactional // 処理の途中でエラーが起きたら自動でデータベースを巻き戻す
     public ResponseEntity<?> processEscape(
             @RequestHeader("Authorization") String token, 
