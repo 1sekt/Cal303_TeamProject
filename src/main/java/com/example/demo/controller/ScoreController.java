@@ -66,14 +66,17 @@ public class ScoreController {
     }
 
     
-    // 2. ハイスコアと履歴取得API (GET /api/score/history) の【完全修正版】
+    // 2. 🟢 ハイスコアと履歴取得API (GET /api/score/history) の【完全最終決定版】
     @GetMapping("/history")
     public ResponseEntity<?> getScoreHistory(@RequestHeader("Authorization") String token) {
         try {
-            // JWTから安全にUUID（ユーザーID）を取り出す
+            // 🔒 1. 既存のセキュアロジックでUUIDを取り出す
             UUID userId = extractUserIdFromToken(token);
 
-            // 🎯【ここを修正】リポジトリ(JPA)ではなく、jdbcTemplateを使ってSupabaseから生の最新ハイスコアを直撃クエリする
+            // 🔒 2. データベースの検索パスを安全第一で public と auth の両方に固定
+            jdbcTemplate.execute("SET search_path TO public, auth;");
+
+            // 🔒 3. JPA(Repository)のキャッシュを完全に無視し、Supabaseから生の最新ハイスコアを直撃クエリ
             String selectScoreSql = "SELECT score FROM scores WHERE user_id = CAST(? AS UUID)";
             Integer highScore = 0;
             try {
@@ -82,20 +85,34 @@ public class ScoreController {
                 highScore = 0; // まだデータがない新規ユーザーの場合は0
             }
 
-            // 履歴リストの取得（1回目、2回目と並べるため、古い順 ASC で取得）
+            // 🔒 4. 履歴リストの取得（1回目、2回目と並べるため、古い順 ASC で取得）
             String selectHistorySql = "SELECT score_earned FROM score_histories WHERE user_id = CAST(? AS UUID) ORDER BY cleared_at ASC";
             List<Integer> scoreHistory = jdbcTemplate.queryForList(selectHistorySql, Integer.class, userId.toString());
 
+            // 🔒 5. Unityの ScoreHistoryResponse クラス（JSON）の変数名と100%完全に一致するMapを作成
             Map<String, Object> response = new HashMap<>();
-            response.put("highScore", highScore);
-            response.put("history", scoreHistory);
+            response.put("currentEarned", 0);            // タイトル遷移時は0固定
+            response.put("highScore", highScore);        // 最新のベストハイスコア
+            response.put("history", scoreHistory);       // 履歴リストの数値
 
-            return ResponseEntity.ok(response);
+            // 🔒 6. 406エラーを完全に防止する、明示的なJSONヘッダー付きでの正常返却
+            return ResponseEntity.ok()
+                    .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                    .body(response);
+
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body("{\"error\":\"Invalid token: " + e.getMessage() + "\"}");
+            e.printStackTrace();
+            
+            // 🔒 7. 万が一エラーが起きても406やパースエラーを起こさない、頑丈なエラーJSONの返却
+            Map<String, String> errorResponse = new HashMap<>();
+            errorResponse.put("error", "GETエラーが発生しました: " + e.getMessage());
+            
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                    .body(errorResponse);
         }
     }
+
 
 
     
