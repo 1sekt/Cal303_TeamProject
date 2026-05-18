@@ -6,7 +6,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -66,25 +65,26 @@ public class ScoreController {
         }
     }
 
-    // 2. ハイスコアと履歴取得API (GET /api/score/history)
+    
+    // 2. ハイスコアと履歴取得API (GET /api/score/history) の修正版
     @GetMapping("/history")
     public ResponseEntity<?> getScoreHistory(@RequestHeader("Authorization") String token) {
         try {
             // JWTから安全にUUID（ユーザーID）を取り出す
             UUID userId = extractUserIdFromToken(token);
 
+            // ① 累積ハイスコアを取得
             Integer highScore = scoreRepository.findHighScoreByUserId(userId);
             if (highScore == null) highScore = 0;
 
-            // 最新10件の履歴を取得
-            List<Score> historyEntities = scoreRepository.findTop10ByUserIdOrderByCreatedAtDesc(userId);
-            List<Integer> scoreHistory = historyEntities.stream()
-                    .map(Score::getScore)
-                    .collect(Collectors.toList());
+            // ② 🎯【重要】新設した score_histories テーブルから、古い順（昇順: ASC）で全履歴のスコアを取得
+            // ※「1回目、2回目…」と過去から順に並べるため、ORDER BY cleared_at ASC にします
+            String selectHistorySql = "SELECT score_earned FROM score_histories WHERE user_id = CAST(? AS UUID) ORDER BY cleared_at ASC";
+            List<Integer> scoreHistory = jdbcTemplate.queryForList(selectHistorySql, Integer.class, userId.toString());
 
             Map<String, Object> response = new HashMap<>();
             response.put("highScore", highScore);
-            response.put("history", scoreHistory);
+            response.put("history", scoreHistory); // 履歴の数値リスト（例: [1500, 3000]）
 
             return ResponseEntity.ok(response);
         } catch (Exception e) {
@@ -92,6 +92,7 @@ public class ScoreController {
                     .body("{\"error\":\"Invalid token: " + e.getMessage() + "\"}");
         }
     }
+
     
     // 3. 🎯 新設：アイテムIDリストを受け取り換金・保存して最新データを返すAPI
     @PostMapping("/escape")
