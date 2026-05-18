@@ -37,11 +37,15 @@ public class ScoreService {
         }
 
         // 2. 既存の scores テーブルに対して累積加算（UPSERT処理）
+        // 🎯 修正：EXCLUDED に頼るのをやめ、3番目の「?」をSQL文に新しく明示的に作成します。
+        // これにより、Javaの currentEarned が確実にダイレクトに天秤（GREATEST）にかけられます。
         String upsertSql = 
-	    "INSERT INTO scores (user_id, score) VALUES (CAST(? AS UUID), ?) " +
-	    "ON CONFLICT (user_id) DO UPDATE SET score = GREATEST(scores.score, EXCLUDED.score)";
+            "INSERT INTO scores (user_id, score) VALUES (CAST(? AS UUID), ?) " +
+            "ON CONFLICT (user_id) DO UPDATE SET score = GREATEST(scores.score, ?)";
 
-        jdbcTemplate.update(upsertSql, userId, currentEarned);
+        // 💡 引数の順番に注目：1番目がuserId、2番目が今回のスコア、3番目にも今回のスコアをもう一度渡します
+        jdbcTemplate.update(upsertSql, userId, currentEarned, currentEarned);
+
 
         // 3. 新しく作った score_histories テーブルへ今回のクリア履歴を挿入
         String insertHistorySql = "INSERT INTO score_histories (user_id, score_earned) VALUES (CAST(? AS UUID), ?)";
