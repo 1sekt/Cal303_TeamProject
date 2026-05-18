@@ -66,25 +66,29 @@ public class ScoreController {
     }
 
     
-    // 2. ハイスコアと履歴取得API (GET /api/score/history) の修正版
+    // 2. ハイスコアと履歴取得API (GET /api/score/history) の【完全修正版】
     @GetMapping("/history")
     public ResponseEntity<?> getScoreHistory(@RequestHeader("Authorization") String token) {
         try {
             // JWTから安全にUUID（ユーザーID）を取り出す
             UUID userId = extractUserIdFromToken(token);
 
-            // ① 累積ハイスコアを取得
-            Integer highScore = scoreRepository.findHighScoreByUserId(userId);
-            if (highScore == null) highScore = 0;
+            // 🎯【ここを修正】リポジトリ(JPA)ではなく、jdbcTemplateを使ってSupabaseから生の最新ハイスコアを直撃クエリする
+            String selectScoreSql = "SELECT score FROM scores WHERE user_id = CAST(? AS UUID)";
+            Integer highScore = 0;
+            try {
+                highScore = jdbcTemplate.queryForObject(selectScoreSql, Integer.class, userId.toString());
+            } catch (Exception e) {
+                highScore = 0; // まだデータがない新規ユーザーの場合は0
+            }
 
-            // ② 🎯【重要】新設した score_histories テーブルから、古い順（昇順: ASC）で全履歴のスコアを取得
-            // ※「1回目、2回目…」と過去から順に並べるため、ORDER BY cleared_at ASC にします
+            // 履歴リストの取得（1回目、2回目と並べるため、古い順 ASC で取得）
             String selectHistorySql = "SELECT score_earned FROM score_histories WHERE user_id = CAST(? AS UUID) ORDER BY cleared_at ASC";
             List<Integer> scoreHistory = jdbcTemplate.queryForList(selectHistorySql, Integer.class, userId.toString());
 
             Map<String, Object> response = new HashMap<>();
             response.put("highScore", highScore);
-            response.put("history", scoreHistory); // 履歴の数値リスト（例: [1500, 3000]）
+            response.put("history", scoreHistory);
 
             return ResponseEntity.ok(response);
         } catch (Exception e) {
@@ -92,6 +96,7 @@ public class ScoreController {
                     .body("{\"error\":\"Invalid token: " + e.getMessage() + "\"}");
         }
     }
+
 
     
     // 3. 🎯 新設：アイテムIDリストを受け取り換金・保存して最新データを返すAPI
