@@ -156,7 +156,9 @@ public class ScoreController {
             response.put("highScore", highScore);        // 累積ハイスコア
             response.put("history", history);            // 履歴5件のリスト
 
-            return ResponseEntity.ok(response);
+         // 🎯 修正：MediaType を明示的に JSON に指定して返却します
+            return ResponseEntity.ok().contentType(org.springframework.http.MediaType.APPLICATION_JSON).body(response);
+
 
         } catch (Exception e) {
             e.printStackTrace();
