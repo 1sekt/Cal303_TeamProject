@@ -162,9 +162,16 @@ public class ScoreController {
 
         } catch (Exception e) {
             e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body("{\"error\":\"Invalid processing: " + e.getMessage() + "\"}");
+            
+            // 🎯 文字列ではなく、確実にJSONとしてシリアライズされるMapを使ってエラーを返します
+            Map<String, String> errorResponse = new HashMap<>();
+            errorResponse.put("error", "Java内部でエラーが発生しました: " + e.getMessage());
+            
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                    .body(errorResponse);
         }
+
     }
 
 
